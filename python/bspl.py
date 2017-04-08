@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import sparse
 import math
 
 # x - input x array
@@ -21,8 +22,13 @@ def bspl(x,y,w=None,p=0.1):
     # order of curve (I suppose it means cubic)
     #[sp,values,rho] = spaps1(x,y,tol,w,m);
 
+    # Convert to numpy array
+    x = np.array(x)
+    y = np.array(y)
+
     if w is None:
-        w = np.ones(x.shape[0],1)  # @TODO ugly piece
+        # @TODO ugly piece
+        w = np.ones([x.shape[0],1])
 
 
     # @TODO check imput arrays here
@@ -38,86 +44,97 @@ def bspl(x,y,w=None,p=0.1):
 
     #[xi,yi,sizeval,w,origint,tol,tolred] = chckxywp(x,y,max(2,m),w,tol,'adjtol');
 
-    # @TODO костыль на время отсуствия проверки
-    #  надо потом понять как всё это парситься и приводится в порядок
+    # @TODO kostil'
     if True:
         xi = x
-        yi = x
+        yi = y
         sizeval = xi.shape[0]
-        tol = 1
+        tol = np.array([1])
         tolread =1
 
 
     dx = np.diff(xi)
+    n = xi.shape[0]
+    xi = xi.reshape(1,n) # I don't understand why xi is reshaped
+    yd = 1
+    """
+    + dx = diff(xi); 
+    + n = size(xi,1);
+    + xi = reshape(xi,1,n);
+    + yd = size(yi,2); 
+    + yd =1
+    """
 
     """
-    dx = diff(xi); n = size(xi,1); xi = reshape(xi,1,n);
-    yd = size(yi,2); # yd =1
- Set up the linear system for solving for the B-spline coefficients of
-  % the m-th derivative of the smoothing spline (as outlined in the note
-  % [C. de Boor, Calculation of the smoothing spline with weighted roughness
-  % measure] obtainable as smooth.ps at ftp.cs.wisc.edu/Approx), making use
-  % of the sparsity of the system.
-  %
-  %  A  is the Gramian of B_{j,x,m}, j=1,...,n-m,
-  % and  Ct  is the matrix whose j-th row contains the weights for
-  % for the `normalized' m-th divdif (m-1)! (x_{j+m}-x_j)[x_j,...,x_{j+m}]
-
-   % Deal with the possibility that a weighted roughness measure is to be used.
-   % This is quite easy since it amounts to multiplying the integrand on the
-   % interval (x(i-1) .. x(i)) by 1/tol(i), i=2:n.
-   if length(tol)==1, dxol = dx;
-   % elseif length(tol)==n: Actually, this is already checked in CHCKXYWP
-   else
+    Set up the linear system for solving for the B-spline coefficients of the m-th derivative of the smoothing spline 
+    (as outlined in the note [C. de Boor, Calculation of the smoothing spline with weighted roughness measure]
+    obtainable as smooth.ps at ftp.cs.wisc.edu/Approx), making use of the sparsity of the system.
+  
+    
+    Deal with the possibility that a weighted roughness measure is to be used. This is quite easy since it amounts to
+    multiplying the integrand on the interval (x(i-1) .. x(i)) by 1/tol(i), i=2:n.
+    if length(tol)==1, dxol = dx;
+    else
       lam = reshape(tol(2:end),n-1,1); tol = tol(1); dxol = dx./lam;
-   end
+    end
+    """
+    if tol.shape[0] ==1:
+        dxol = dx
+    else:
+        lam = tol[2:].reshape(n - 1, 1)
+        tol = tol[0]
+        dxol = np.divide(dx,lam)
 
-# if m = 2
-A = spdiags([dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)], ...
-                                                                               - 1:1, n - m, n - m) / 6;
-odx = 1. / dx;
-Ct = spdiags([odx(1:n - 2), -(odx(2:n - 1)+odx(1:n - 2)), odx(2:n - 1)], ...
-0:m, n - m, n);
+    """"
+    A  is the Gramian of B_{j,x,m}, j=1,...,n-m,. It is an almost diagonal square matrix with (n-m) side and columns 
+    [dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)] on diagonals (-1, 0, 1)
+    """
+    d1 = dxol[2:n - 1] /6
+    d2 = 2*(dxol[2:n - 1]+dxol[1:n-2])/6
+    d3 = dxol[1:n - 2] /6
+    A = sparse.spdiags([d1,d2, d3],[-1,0,1], n-m, n-m)
 
-% Now determine  f  as the smoothing spline, i.e., the minimizer of
-  %
-  %  rho*E(f) + F(D^m f)
-  %
-  % with the smoothing parameter  RHO  chosen so that  E(f) <= TOL .
-  % Start with  RHO=0 , in which case  f  is polynomial of order  M  that
-  % minimizes  E(f) .
-  % If the resulting  E(f)  is too large, follow C. Reinsch
-  % and determine the proper  rho  as the unique zero of the function
-  %
-  %   g(rho):= 1/sqrt(E(rho)) - 1/sqrt(TOL)
-  %
-  % (since  g  is monotone increasing and is close to linear for larger RHO)
-  % using Newton's method  at  RHO = 0 but deviating from Reinsch's advice by
-  % using the Secant method after that.
-  % This requires  g'(rho) = -(1/2)E(rho)^{-3/2} DE(rho) , with  DE(rho)
-  % derived from the determining equations for  f . These are
-  %
-  %        Ct y = (Ct W^{-1} C + rho A) u,  u := c/rho,
-  %
-  % with  c  the B-coefficients of  D^m f , in terms of which
-  %
-  %       y - f = W^{-1} C u,  E(rho) =  (C u)' W^{-1} C u ,
-  % hence
-  %         DE(rho) =  2 (C u)' W^{-1} C Du ,
-  % with
-  %           - A u = (Ct W^{-1} C + rho A) Du
-  %
-  % In particular, DE(0) = -2 u' A u , with  u = (Ct W^{-1} C) \ (Ct y) ,
-  % hence  g'(0) = E(0)^{-3/2} u' A u.
+    odx = np.divide(1,dx)
+    """
+    Ct  is the matrix whose j-th row contains the weights for for the `normalized' 
+    m-th divdif (m-1)! (x_{j+m}-x_j)[x_j,...,x_{j+m}]
+    """
+    Ct = sparse.spdiags([odx[1:n-2], -(odx[2:n-1]+odx[1:n-2]), odx[2:n-1]], range(0,m+1), n-m, n)
 
-   cty = Ct*yi; wic = spdiags(1./w(:),0,n,n)*(Ct.'); ctwic = Ct*wic;
 
-must_integrate = 1;
+    """
+    Now determine  f  as the smoothing spline, i.e., the minimizer of
+        rho*E(f) + F(D^m f)
+    with the smoothing parameter  RHO  chosen so that  E(f) <= TOL. Start with  RHO=0 , in which case  f  is polynomial
+    of order  M  that minimizes  E(f). If the resulting  E(f)  is too large, follow C. Reinsch and determine the proper
+    rho as the unique zero of the function
+        g(rho):= 1/sqrt(E(rho)) - 1/sqrt(TOL)
+    (since  g  is monotone increasing and is close to linear for larger RHO) using Newton's method  at  RHO = 0
+     but deviating from Reinsch's advice by using the Secant method after that. This requires
+        g'(rho) = -(1/2)E(rho)^{-3/2} DE(rho) 
+     with  DE(rho) derived from the determining equations for  f . These are
+        Ct y = (Ct W^{-1} C + rho A) u,  u := c/rho
+     with  c  the B-coefficients of  D^m f , in terms of which
+         y - f = W^{-1} C u,  E(rho) =  (C u)' W^{-1} C u ,
+     hence DE(rho) =  2 (C u)' W^{-1} C Du, with  - A u = (Ct W^{-1} C + rho A) Du
+     
+     In particular, DE(0) = -2 u' A u , with  u = (Ct W^{-1} C) \ (Ct y), hence  g'(0) = E(0)^{-3/2} u' A u.
+     
+     """
 
-% we are to work with a specified rho
-rho = -tol;
-u = (ctwic + rho * A)\cty; ymf = wic * u; values = (yi - ymf).';
+     cty = Ct*yi
+     wic = sparse.spdiags(np.divide(1,w),0,n,n)*Ct.T
+     ctwic = Ct*wic
 
+     must_integrate = 1;
+
+     #we are to work with a specified rho
+      rho = -tol
+      u = (ctwic + rho * A)\cty
+      ymf = wic * u
+      values = (yi - ymf).'
+
+"""
 if must_integrate
       sp = spmak(xi,(rho*u).');
       if exist('lam','var') % we must divide D^m s by lambda before integration.
@@ -190,3 +207,7 @@ if must_integrate
     return 0
     """
     return 0
+
+
+if __name__=='__main__':
+    bspl([0, 1, 2, 3], [0, 1, 2, 3])
