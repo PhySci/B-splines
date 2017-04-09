@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import UnivariateSpline as Spline
 
-import bspl
+import bspl2
 
 # read data
 data = np.genfromtxt('../data/data.csv', delimiter=',')
@@ -32,4 +32,4 @@ plt.plot(xData,sl-pr)
 plt.legend(['Matlab - Scipy'])
 plt.show()
 
-bspl([0,1,2,3],[0,1,2,3])
+bspl2([0,1,2,3],[0,1,2,3])
