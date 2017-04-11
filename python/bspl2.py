@@ -3,7 +3,7 @@ from scipy import sparse
 from scipy.sparse import linalg
 
 import matplotlib.pylab as plt
-import math
+
 
 
 # x - input x array
@@ -92,9 +92,9 @@ def bspl2(x, y, w=None, p=0.1, verbose = False):
 if __name__ == '__main__':
 
     x = [0, 1, 2, 3, 4, 5]
-    y =  [0, 1, 8, 27, 64, 125]
+    y =  [0, 1, 8, 27, 8, 1]
     print y
-    w = [1, 1/3, 1/5, 1/15, 10, 1]
+    w = [1/3, 1/3, 1/10, 1/20, 1/15, 1]
 
     k = bspl2(x,y,w,0.1)
     print k
