@@ -12,7 +12,7 @@ def bspl(x,y,w=None,p=0.1):
     Return smooth B spline
     :param x: array of independent variable
     :param y: array of dependent variable
-    :param w: array of weights 
+    :param w: array of weights
     :param p: smoothness of spline in range [0,1]
     :return: still don't know @TODO
     """
@@ -58,19 +58,19 @@ def bspl(x,y,w=None,p=0.1):
     xi = xi.reshape(1,n) # I don't understand why xi is reshaped
     yd = 1
     """
-    + dx = diff(xi); 
+    + dx = diff(xi);
     + n = size(xi,1);
     + xi = reshape(xi,1,n);
-    + yd = size(yi,2); 
+    + yd = size(yi,2);
     + yd =1
     """
 
     """
-    Set up the linear system for solving for the B-spline coefficients of the m-th derivative of the smoothing spline 
+    Set up the linear system for solving for the B-spline coefficients of the m-th derivative of the smoothing spline
     (as outlined in the note [C. de Boor, Calculation of the smoothing spline with weighted roughness measure]
     obtainable as smooth.ps at ftp.cs.wisc.edu/Approx), making use of the sparsity of the system.
-  
-    
+
+
     Deal with the possibility that a weighted roughness measure is to be used. This is quite easy since it amounts to
     multiplying the integrand on the interval (x(i-1) .. x(i)) by 1/tol(i), i=2:n.
     if length(tol)==1, dxol = dx;
@@ -86,7 +86,7 @@ def bspl(x,y,w=None,p=0.1):
         dxol = np.divide(dx,lam)
 
     """"
-    A  is the Gramian of B_{j,x,m}, j=1,...,n-m,. It is an almost diagonal square matrix with (n-m) side and columns 
+    A  is the Gramian of B_{j,x,m}, j=1,...,n-m,. It is an almost diagonal square matrix with (n-m) side and columns
     [dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)] on diagonals (-1, 0, 1)
     """
     d1 = dxol[2:n - 1] /6
@@ -96,7 +96,7 @@ def bspl(x,y,w=None,p=0.1):
 
     odx = np.divide(1,dx)
     """
-    Ct  is the matrix whose j-th row contains the weights for for the `normalized' 
+    Ct  is the matrix whose j-th row contains the weights for for the `normalized'
     m-th divdif (m-1)! (x_{j+m}-x_j)[x_j,...,x_{j+m}]
     """
     Ct = sparse.spdiags([odx[1:n-2], -(odx[2:n-1]+odx[1:n-2]), odx[2:n-1]], range(0,m+1), n-m, n)
@@ -111,15 +111,15 @@ def bspl(x,y,w=None,p=0.1):
         g(rho):= 1/sqrt(E(rho)) - 1/sqrt(TOL)
     (since  g  is monotone increasing and is close to linear for larger RHO) using Newton's method  at  RHO = 0
      but deviating from Reinsch's advice by using the Secant method after that. This requires
-        g'(rho) = -(1/2)E(rho)^{-3/2} DE(rho) 
+        g'(rho) = -(1/2)E(rho)^{-3/2} DE(rho)
      with  DE(rho) derived from the determining equations for  f . These are
         Ct y = (Ct W^{-1} C + rho A) u,  u := c/rho
      with  c  the B-coefficients of  D^m f , in terms of which
          y - f = W^{-1} C u,  E(rho) =  (C u)' W^{-1} C u ,
      hence DE(rho) =  2 (C u)' W^{-1} C Du, with  - A u = (Ct W^{-1} C + rho A) Du
-     
+
      In particular, DE(0) = -2 u' A u , with  u = (Ct W^{-1} C) \ (Ct y), hence  g'(0) = E(0)^{-3/2} u' A u.
-     
+
      """
 
      cty = Ct*yi
@@ -172,7 +172,9 @@ if must_integrate
          end % of case distinction based on value of m
       end  % of division of D^m s by lam
 
-      for j=1:m-1, sp = fnint(sp); end
+      for j=1:m-1,
+          sp = fnint(sp);
+      end
       sp = fnint(sp,values(:,1));
    end
 
@@ -195,7 +197,7 @@ if must_integrate
     if m==2
       sp = spmak(knots, coefs+vals); % vals give the value at the Greville
                                      % points of a straight line, and these
-                                     
+
 
                                      % we know therefore to be the B-coeffs
                                      % of that straight line wrto knots.
@@ -203,10 +205,10 @@ if must_integrate
       sp = spmak(knots, coefs+spbrk(spapi(knots,knotstar,vals),'coefs'));
     end
     end
-    
+
     return 0
     """
-    return 0
+     return 0
 
 
 def bspl2(x, y, w=None, p=0.1):

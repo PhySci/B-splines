@@ -12,7 +12,7 @@ if __name__ == '__main__':
     print 'y=',y
 
 
-    spl = SmoothBSpline(x, y, w, -0.5)
+    spl = SmoothBSpline(x, y, w, 0)
     x2 = np.linspace(1,4.99,100)
     k = spl.calcCurve(x2)
 
