@@ -33,7 +33,7 @@ class SmoothBSpline():
         :param y: array of dependent variable
         :param w: array of weights 
         :param p: smoothness of spline in range [0,1]
-        """
+        ""
         x = np.array(x)
         y = np.array(y)
 
@@ -85,6 +85,7 @@ class SmoothBSpline():
         print 'a=', self._a
         print 'c=', self._c
         print 'd=', self._d
+        """
 
 
     @classmethod
@@ -127,7 +128,7 @@ class SmoothBSpline():
 
 
     @classmethod
-    def bspl(x, y, w=None, p=0.1):
+    def bspl(self, x, y, w=None, p=0.1):
         """
         Return smooth B spline
         :param x: array of independent variable
@@ -168,7 +169,7 @@ class SmoothBSpline():
         xi = x
         yi = y
         sizeval = xi.shape[0]
-        tol = np.array([1])
+        tol = 1 # np.array([1])
         tolread = 1
 
         dx = np.diff(xi)
@@ -189,28 +190,32 @@ class SmoothBSpline():
           lam = reshape(tol(2:end),n-1,1); tol = tol(1); dxol = dx./lam;
         end
         """
-        if tol.shape[0] == 1:
-            dxol = dx
-        else: # I suppose that part of code will never work
-            lam = tol[2:].reshape(n - 1, 1)
-            tol = tol[0]
-            dxol = np.divide(dx, lam)
+        #if tol.shape[0] == 1:
+        dxol = dx
+        #else: # I suppose that part of code will never work
+        #    lam = tol[2:].reshape(n - 1, 1)
+        #    tol = tol[0]
+        #    dxol = np.divide(dx, lam)
 
         """"
         A  is the Gramian of B_{j,x,m}, j=1,...,n-m,. It is an almost diagonal square matrix with (n-m) side and columns
         [dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)] on diagonals (-1, 0, 1)
         """
-        d1 = dxol[2:n - 1] / 6
-        d2 = 2 * (dxol[2:n - 1] + dxol[1:n - 2]) / 6
-        d3 = dxol[1:n - 2] / 6
-        A = sparse.spdiags([d1, d2, d3], [-1, 0, 1], n - m, n - m)
+        d1 = dxol[1:n-2]/6
+        d2 = 2*(dxol[1:n-2]+dxol[:n-3])/6
+        d3 = dxol[:n-3]/6
+        A = sparse.spdiags(np.array([d1, d2, d3]), np.array([-1, 0, 1]), n - m, n - m) #MATLAB TESTED
 
         odx = np.divide(1, dx)
         """
         Ct  is the matrix whose j-th row contains the weights for for the `normalized'
         m-th divdif (m-1)! (x_{j+m}-x_j)[x_j,...,x_{j+m}]
+        
+        Ct = spdiags([odx(1:n-2), -(odx(2:n-1)+odx(1:n-2)), odx(2:n-1)], 0:m, n-m,n);
+        
         """
-        Ct = sparse.spdiags([odx[1:n - 2], -(odx[2:n - 1] + odx[1:n - 2]), odx[2:n - 1]], range(0, m + 1), n - m, n)
+
+        Ct = sparse.spdiags(np.array([odx[:n-2], -odx[:n-2]-odx[1:n-1], odx[1:n-1]]), np.array([0, 1, 2]), n-2, n)
 
         """
         Now determine  f  as the smoothing spline, i.e., the minimizer of
@@ -233,15 +238,23 @@ class SmoothBSpline():
          """
 
         cty = Ct * yi
-        wic = sparse.spdiags(np.divide(1, w), 0, n, n) * Ct.T
-        ctwic = Ct * wic
+
+        invM = sparse.spdiags(np.array(np.divide(1, w)), np.array(0), n, n);
+        wic = np.dot(invM, Ct.transpose())
+        ctwic = np.dot(Ct,wic)
 
         must_integrate = 1;
 
         # we are to work with a specified rho
-        rho = -tol
-        u = np.divide(ctwic+rho*A,cty)
-        ymf = wic * u
+        # @TODO fix it
+        rho = tol
+        tmp = ctwic+rho*A
+
+        @TODO Matrix left division \ of Galois arrays
+        u = np.divide(tmp,cty)
+
+        ymf = np.dot(wic,u)
+        print ymf
         # values = (yi - ymf).'
 
 
@@ -284,4 +297,4 @@ if must_integrate
 
     return 0
     """
-return 0
+      #return 0
