@@ -256,31 +256,40 @@ class SmoothBSpline():
         c = rho *u
         c = np.transpose(c)
 
-        [knots, coeffs] = self.fnint(xi, c, 8, 2)
+        [knots, coeffs] = self.fnint(xi, c, c.shape[0], 2)
+        [knots, coeffs] = self.fnint(knots, coeffs, coeffs.shape[0], 3, values[0])
         print 'knots', knots
         print 'coeffs', coeffs
 
-        [knots, coeffs] = self.fnint(knots, coeffs, 9, 3, -3.3058)
-        print 'knots', knots
-        print 'coeffs', coeffs
-
-        """
-        sp = spmak(xi,(rho*u).')
-        sp = fnint(sp)
-        sp = fnint(sp,values(:,1));
-        """
 
         """ 
         % At this point, SP differs from the answer by a polynomial of order M , and
         % this polynomial is computable from its values   VALUES-FNVAL(SP,XI)
         if m>1
-        [knots, coefs, ignored, k] = spbrk(sp);
-        knotstar = aveknt(knots,k); knotstar([1 end]) = knots([1 end]);
+        """
+        k = 3
+        # knotstar = aveknt(knots,k) @TODO
+        #knotstar[1 end] = knots[1 end]
+
+        """
         %(special treatment of endpoints to avoid singularity of collocation
         % matrix due to noise in calculating knot averages)
-
-        vals = polyval(polyfit(xi-xi(1),values-fnval(sp,xi),m-1),knotstar-xi(1));  <-- only this part is used
         
+        polyfit(x,y,n) finds the coefficients of a polynomial p(x) of degree n that fits the data, p(x(i)) to y(i),
+        in a least squares sense.
+        """
+
+        a1 = xi - xi(1) # смещение на ноль
+        a2 = values - fnval(sp, xi) # похоже на функцию ошибки
+
+        # нужен вот этот кусок
+        # --->> fnval(sp, xi)
+
+         a3 = knotstar-xi(1) # смещение на ноль
+
+        vals = polyval(np.polyfit(a1,a2,1), a3)
+
+        """
         % vals give the value at the Greville points of a straight line, and these
         % we know therefore to be the B-coeffs of that straight line wrto knots.
         sp = spmak(knots, coefs+vals); 
