@@ -255,7 +255,15 @@ class SmoothBSpline():
         values = (yi - ymf).transpose()
         c = rho *u
         c = np.transpose(c)
-        self.fnint(xi, c, 8, 2)
+
+        [knots, coeffs] = self.fnint(xi, c, 8, 2)
+        print 'knots', knots
+        print 'coeffs', coeffs
+
+        [knots, coeffs] = self.fnint(knots, coeffs, 9, 3, -3.3058)
+        print 'knots', knots
+        print 'coeffs', coeffs
+
         """
         sp = spmak(xi,(rho*u).')
         sp = fnint(sp)
@@ -282,19 +290,9 @@ class SmoothBSpline():
         return 0
 
     @classmethod
-    def fnint(self, t, a, n, k, val = 0):
-
-        # [KNOTS, COEFS, N, K, D] = SPBRK(SP) breaks the B-form in SP into its parts and returns as many of them as are
-        # specified by the output arguments.
-        # t - list of knots
-        # a - list of coefficients
-        # n - number of knots
-        # k - order ?
-        # d - dimension (=1)
-        #[t, a, n, k, d] = spbrk(f);
-
+    def fnint(self, t, a, n, k, val = 0.0):
         # increase multiplicity of last knot to k
-        [tmp,index] =  np.diff(t).nonzero()
+        index =  np.flatnonzero(np.diff(t))
 
         needed = index[-1]+1 - n
         if (needed > 0):
@@ -302,19 +300,13 @@ class SmoothBSpline():
             a =np.hstack([a, np.zeros(1, needed)])
             n = n+needed
 
-        if (val > 0): #if a left-end value is specified, increase left-end knot
-                    #% multiplicity to k+1, making the additional coefficients
-                    #% 0, then add IFA to all coefficients of the integral.
-            needed = k - index(1)
-            knots = np.hstack([np.tile(t[0], [1, needed+1]), t, t[n+k]])
-            #coeff = cumsum([ifa, zeros(d, needed), a.* np.tile((t[k+[1:n]]-t(1:n)) / k, d, 1)],2)
-
+        if (val!=0.0):
+            needed = k - index[0]-1
+            knots = np.append(np.hstack((np.tile(t[0],[1, needed+1]).ravel(), t)), t[n+k-1])
+            slice = np.hstack((val,np.zeros(needed), np.multiply(a,np.tile(np.divide(t[k:k+n]-t[:n],k), 1))))
+            coeffs = np.cumsum(slice)
         else:
             knots= np.hstack((t[0,:], t[0,n+k-1]))
             coeffs =  np.cumsum(np.multiply(a, np.tile( np.divide(t[0,k:k+n] - t[0,:n], k), 1)))
 
-        print 'coeff', coeffs
-        print 'knots', knots
-        #intgrf = spmak(knots, coeff);
-        return 0
-
+        return knots, coeffs
