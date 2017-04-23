@@ -5,9 +5,10 @@ F. Mushenok, https://github.com/PhySci
 """
 
 import numpy as np
+
 from scipy import sparse
 from scipy.sparse import linalg
-
+#from scipy import linalg
 
 class SmoothBSpline():
 
@@ -201,10 +202,8 @@ class SmoothBSpline():
         A  is the Gramian of B_{j,x,m}, j=1,...,n-m,. It is an almost diagonal square matrix with (n-m) side and columns
         [dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)] on diagonals (-1, 0, 1)
         """
-        d1 = dxol[1:n-2]/6
-        d2 = 2*(dxol[1:n-2]+dxol[:n-3])/6
-        d3 = dxol[:n-3]/6
-        A = sparse.spdiags(np.array([d1, d2, d3]), np.array([-1, 0, 1]), n - m, n - m) #MATLAB TESTED
+
+        A = sparse.spdiags(np.array([dxol[1:n-2]/6, 2*(dxol[1:n-2]+dxol[:n-3])/6, dxol[:n-3]/6]), np.array([-1, 0, 1]), n - m, n - m) #MATLAB TESTED
 
         odx = np.divide(1, dx)
         """
@@ -215,7 +214,8 @@ class SmoothBSpline():
         
         """
 
-        Ct = sparse.spdiags(np.array([odx[:n-2], -odx[:n-2]-odx[1:n-1], odx[1:n-1]]), np.array([0, 1, 2]), n-2, n)
+        # Ct matrix is wrong
+        Ct = sparse.diags([odx[:n-2], -odx[:n-2]-odx[1:n-1], odx[1:n-1]], [0, 1, 2], shape = [n-2, n])
 
         """
         Now determine  f  as the smoothing spline, i.e., the minimizer of
@@ -234,67 +234,87 @@ class SmoothBSpline():
          hence DE(rho) =  2 (C u)' W^{-1} C Du, with  - A u = (Ct W^{-1} C + rho A) Du
 
          In particular, DE(0) = -2 u' A u , with  u = (Ct W^{-1} C) \ (Ct y), hence  g'(0) = E(0)^{-3/2} u' A u.
-
          """
 
-        cty = Ct * yi
+        cty = Ct*yi
 
-        invM = sparse.spdiags(np.array(np.divide(1, w)), np.array(0), n, n);
-        wic = np.dot(invM, Ct.transpose())
+        wic = np.dot(sparse.diags(np.divide(1, w), 0, shape = [n, n]), Ct.transpose())
+
         ctwic = np.dot(Ct,wic)
+        # ctwic looks nice
 
         must_integrate = 1;
 
         # we are to work with a specified rho
         # @TODO fix it
         rho = tol
-        tmp = ctwic+rho*A
 
-        @TODO Matrix left division \ of Galois arrays
-        u = np.divide(tmp,cty)
+        # values of u vector is slightly diffre from MatLab values. Perhaps, due to another solving method.
+        u = linalg.spsolve(ctwic+rho*A,cty)
+        ymf = wic*u
+        values = (yi - ymf).transpose()
+        c = rho *u
+        c = np.transpose(c)
+        self.fnint(xi, c, 8, 2)
+        """
+        sp = spmak(xi,(rho*u).')
+        sp = fnint(sp)
+        sp = fnint(sp,values(:,1));
+        """
 
-        ymf = np.dot(wic,u)
-        print ymf
-        # values = (yi - ymf).'
+        """ 
+        % At this point, SP differs from the answer by a polynomial of order M , and
+        % this polynomial is computable from its values   VALUES-FNVAL(SP,XI)
+        if m>1
+        [knots, coefs, ignored, k] = spbrk(sp);
+        knotstar = aveknt(knots,k); knotstar([1 end]) = knots([1 end]);
+        %(special treatment of endpoints to avoid singularity of collocation
+        % matrix due to noise in calculating knot averages)
 
+        vals = polyval(polyfit(xi-xi(1),values-fnval(sp,xi),m-1),knotstar-xi(1));  <-- only this part is used
+        
+        % vals give the value at the Greville points of a straight line, and these
+        % we know therefore to be the B-coeffs of that straight line wrto knots.
+        sp = spmak(knots, coefs+vals); 
 
-"""
-if must_integrate
-      sp = spmak(xi,(rho*u).')
-      for j=1:m-1
-          sp = fnint(sp)
-      end
-      sp = fnint(sp,values(:,1));
-   end
+        return 0
+        """
+        return 0
 
-    % At this point, SP differs from the answer by a polynomial of order M , and
-    % this polynomial is computable from its values   VALUES-FNVAL(SP,XI)
-    if m>1
-    [knots, coefs, ignored, k] = spbrk(sp);
-    knotstar = aveknt(knots,k); knotstar([1 end]) = knots([1 end]);
-    % (special treatment of endpoints to avoid singularity of collocation
-    %  matrix due to noise in calculating knot averages)
+    @classmethod
+    def fnint(self, t, a, n, k, val = 0):
 
-    if yd==1
-       vals = polyval(polyfit(xi-xi(1),values-fnval(sp,xi),m-1),knotstar-xi(1));  <-- only this part is used
-    else
-      %  Unfortunately, MATLAB's POLYVAL and POLYFIT only work for scalar-valued
-      %  functions, hence we must make our own homegrown fit here.
-      vals = fnval(spap2(1,m,xi,values-fnval(sp,xi)),knotstar);
-    end
+        # [KNOTS, COEFS, N, K, D] = SPBRK(SP) breaks the B-form in SP into its parts and returns as many of them as are
+        # specified by the output arguments.
+        # t - list of knots
+        # a - list of coefficients
+        # n - number of knots
+        # k - order ?
+        # d - dimension (=1)
+        #[t, a, n, k, d] = spbrk(f);
 
-    if m==2
-      sp = spmak(knots, coefs+vals); % vals give the value at the Greville
-                                     % points of a straight line, and these
+        # increase multiplicity of last knot to k
+        [tmp,index] =  np.diff(t).nonzero()
 
+        needed = index[-1]+1 - n
+        if (needed > 0):
+            t = np.hstack([t, np.tile(t[:,n+k-1], [1, needed])])
+            a =np.hstack([a, np.zeros(1, needed)])
+            n = n+needed
 
-                                     % we know therefore to be the B-coeffs
-                                     % of that straight line wrto knots.
-    elseif m==3
-      sp = spmak(knots, coefs+spbrk(spapi(knots,knotstar,vals),'coefs'));
-    end
-    end
+        if (val > 0): #if a left-end value is specified, increase left-end knot
+                    #% multiplicity to k+1, making the additional coefficients
+                    #% 0, then add IFA to all coefficients of the integral.
+            needed = k - index(1)
+            knots = np.hstack([np.tile(t[0], [1, needed+1]), t, t[n+k]])
+            #coeff = cumsum([ifa, zeros(d, needed), a.* np.tile((t[k+[1:n]]-t(1:n)) / k, d, 1)],2)
 
-    return 0
-    """
-      #return 0
+        else:
+            knots= np.hstack((t[0,:], t[0,n+k-1]))
+            coeffs =  np.cumsum(np.multiply(a, np.tile( np.divide(t[0,k:k+n] - t[0,:n], k), 1)))
+
+        print 'coeff', coeffs
+        print 'knots', knots
+        #intgrf = spmak(knots, coeff);
+        return 0
+

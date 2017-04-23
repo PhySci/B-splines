@@ -160,7 +160,11 @@ else
    must_integrate = 1;
    if tol<0      % we are to work with a specified rho
       rho = -tol;
-      u = (ctwic + rho*A)\cty; ymf = wic*u; values = (yi - ymf).';
+      a1 = ctwic + rho*A
+      a2 = cty
+      u = a1\a2;
+      ymf = wic*u;
+      values = (yi - ymf).';
    else          % determine  rho  from the tolerance requirement
 
       u = ctwic\cty; ymf = wic*u; E = trace(u'*Ct*ymf);
@@ -218,7 +222,9 @@ else
          end % of case distinction based on value of m
       end  % of division of D^m s by lam
 
-      for j=1:m-1, sp = fnint(sp); end
+      for j=1:m-1
+          sp = fnint(sp);
+      end
       sp = fnint(sp,values(:,1));
    end
 end
