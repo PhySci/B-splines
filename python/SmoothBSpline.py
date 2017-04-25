@@ -274,9 +274,6 @@ class SmoothBSpline():
         % this polynomial is computable from its values   VALUES-FNVAL(SP,XI)
         if m>1
         """
-        k = 3
-        # knotstar = aveknt(knots,k) @TODO
-        #knotstar[1 end] = knots[1 end]
 
         """
         %(special treatment of endpoints to avoid singularity of collocation
@@ -287,8 +284,11 @@ class SmoothBSpline():
         """
 
         a1 = xi - xi[0,0] # shift to zero
-        self.eval( a1)
-        #a2 = values - fnval(sp, xi) # looks like error function
+        a2 = values - self.eval(xi)
+
+        knotstar = self.aveknt(self._knots,self._k) # @TODO
+        #knotstar[1 end] = knots[1 end]
+
 
         # need it
         # --->> fnval(sp, xi)
@@ -403,5 +403,48 @@ class SmoothBSpline():
 
         v = b[:,0]
         #Finally, zero out all values for points outside the basic interval:
-        #v[x < t[0] | x > t(-1)] =0
+        v[x[0,:]<t[0]] = 0
+        v[x[0,:]>t[-1]] = 0
         return v
+
+
+    @classmethod
+    def aveknt(self,t, k):
+        """
+        AVEKNT Knot averages.
+        Returns the averages of successive K-1 knots, i.e. the points
+    
+              TSTAR(i) = (T_{i + 1} + ... + T_{i + K - 1} ) / (K - 1)
+    
+        Recommended as good interpolation point choices when interpolating from  S_{K, T}.
+        For example, with k and the increasing sequence  breaks  given, the statements
+        
+        t = augknt(breaks, k);
+        x = aveknt(t);
+        sp = spapi(t, x, sin(x));
+    
+        provide spline interpolant to the sine function on the interval [breaks(1)..breaks(end)].
+    
+        :param t: 
+        :param k: 
+        :return: 
+        """
+        t = self._knots;
+        n = t.shape[0] - k;
+        if (k < 2):
+            print 'SPLINES:AVEKNT:wrongk'
+            return 0
+        elif (n < 0):
+            print 'SPLINES:AVEKNT:toofewknots'
+            return 0
+        elif (k == 2):
+            tstar = np.reshape(t[np.arange(1,n+1)], [1, n])
+        else:
+            temp = np.tile(t, [k-1, 1]).transpose().flatten(1)
+
+            c = np.hstack([temp,np.zeros(k-1)])
+            c1 = np.reshape(c, [k-1, n+k+1])
+            c2 = c1.sum(0)
+            temp = np.divide(c2,k-1)
+            #tstar = temp(1 + [1:n]);
+        return tstar
