@@ -26,6 +26,10 @@ class SmoothBSpline():
     # smooth parameter
     _p = 0.1
 
+    _knots = np.array([]) # array of knots
+    _coeffs = np.array([]) # array of coefficients
+    _k = 0 # order of spline
+
     @classmethod
     def __init__(self, x, y, w, p):
         """
@@ -260,6 +264,9 @@ class SmoothBSpline():
         [knots, coeffs] = self.fnint(knots, coeffs, coeffs.shape[0], 3, values[0])
         print 'knots', knots
         print 'coeffs', coeffs
+        self._knots = knots
+        self._coeffs = coeffs
+        self._k = 4
 
 
         """ 
@@ -279,15 +286,16 @@ class SmoothBSpline():
         in a least squares sense.
         """
 
-        a1 = xi - xi(1) # смещение на ноль
-        a2 = values - fnval(sp, xi) # похоже на функцию ошибки
+        a1 = xi - xi[0,0] # shift to zero
+        self.eval( a1)
+        #a2 = values - fnval(sp, xi) # looks like error function
 
-        # нужен вот этот кусок
+        # need it
         # --->> fnval(sp, xi)
 
-         a3 = knotstar-xi(1) # смещение на ноль
+        # a3 = knotstar-xi(1) # shift to zero
 
-        vals = polyval(np.polyfit(a1,a2,1), a3)
+        #vals = polyval(np.polyfit(a1,a2,1), a3)
 
         """
         % vals give the value at the Greville points of a straight line, and these
@@ -300,9 +308,18 @@ class SmoothBSpline():
 
     @classmethod
     def fnint(self, t, a, n, k, val = 0.0):
+        """
+        Integration of BB spline
+        :param t: array of knots
+        :param a: array of coefficients
+        :param n: number of coefficients
+        :param k: order of spline
+        :param val: value of the integral on the left end
+        :return: list of new knots and coefficients  
+        """
+
         # increase multiplicity of last knot to k
         index =  np.flatnonzero(np.diff(t))
-
         needed = index[-1]+1 - n
         if (needed > 0):
             t = np.hstack([t, np.tile(t[:,n+k-1], [1, needed])])
@@ -319,3 +336,72 @@ class SmoothBSpline():
             coeffs =  np.cumsum(np.multiply(a, np.tile( np.divide(t[0,k:k+n] - t[0,:n], k), 1)))
 
         return knots, coeffs
+
+    @classmethod
+    def eval(self,x,left = 0):
+        """
+        :param x: array of absciss where function will be calculated 
+        :param left: uknown parameter @TODO sort out what it is
+        :return: array of function values for each x value
+        """
+        nx = 1 #everywhere because 1D array of x values is accepted
+        mx = x.shape[1]
+        lx = mx * nx;
+        xs = x # reshape(x, 1, lx);
+
+        # Take apart spline:
+        t = self._knots
+        a = self._coeffs
+        k = self._k
+        d = 1
+        n = a.shape[0]
+
+        # If there are no points to evaluate at return empty matrix of appropriate size:
+        if (lx == 0):
+            v = np.zeros(0)
+            return v
+        #Otherwise, augment the knot sequence so that first and last knot each has multiplicity >= K.
+        #(AUGKNT would not be suitable for this since any change in T must be accompanied by a corresponding change in A.)
+
+        # I think this peace of code does not work. Keep it it comments
+        #index = np.flatnonzero(np.diff(t))
+        #addl = k - index[0]
+        #addr = index[-1] - n
+        #if (addl > 0 || addr > 0):
+        #    npk = n + k
+        #    t1 = t[np.ones(addl)]
+        #    t2 = t[:npk-1]
+        #    t3 = t[npk]
+        #    t4 =
+        #    t = t[, 0:npk-1, npk[ones(1, addr)]]
+        #    a = [zeros(d, addl) a zeros(d, addr)]
+        #    n = n + addl + addr
+
+        index = np.digitize(x, t[k-1:n])  # [~, index] = histc(xs, [-inf, t(k + 1:n), inf]);
+        NaNx = np.flatnonzero(index == 0)
+        index = np.minimum(index+k-1,n) #quite important line, debug it carefully
+
+        if NaNx.shape[0]>0:
+            index[NaNx] = k
+
+        # Now, all is ready for the evaluation.
+        # Carry out in lockstep the first spline evaluation algorithm
+        # (this requires the following initialization):
+        if (k > 1):
+            dindex = index
+            tx = t[np.tile(np.arange(2-k,k), [lx,1]) + np.tile(dindex,[2*(k-1),1]).transpose() -1]
+            tx = tx - np.tile(xs, [2*(k - 1),1]).transpose()
+            b = np.tile(np.arange(d*(1-k),1,d), [lx, 1]) + np.tile(index, [k, 1]).transpose()
+            b = a[b-1];
+
+        # (the following loop is taken from SPRPP)
+        for r in range(1,k):
+            for i in range(1,k-r):
+                a5 = np.multiply(tx[:, i+k-2],b[:, i-1]) - np.multiply(tx[:, i+r-2],b[:, i])
+                a6 = tx[:,i+k-2] - tx[:,i+r-2]
+                b[:, i-1] = np.divide(a5,a6)
+
+        v = b[:,0]
+        #Finally, zero out all values for points outside the basic interval:
+        #v[x < t[0] | x > t(-1)] =0
+        return v
