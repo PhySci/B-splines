@@ -133,7 +133,7 @@ class SmoothBSpline():
 
 
     @classmethod
-    def bspl(self, x, y, w=None, p=0.1):
+    def bspl(self, x, y, w, p):
         """
         Return smooth B spline
         :param x: array of independent variable
@@ -149,8 +149,8 @@ class SmoothBSpline():
         # [sp,values,rho] = spaps1(x,y,tol,w,m);
 
         # Convert to numpy array
-        x = np.array(x)
-        y = np.array(y)
+        #x = np.array(x)
+        #y = np.array(y)
 
         if w is None:
             # @TODO ugly piece
@@ -174,12 +174,11 @@ class SmoothBSpline():
         xi = x
         yi = y
         sizeval = xi.shape[0]
-        tol = 1 # np.array([1])
+        tol = p # np.array([1])
         tolread = 1
 
         dx = np.diff(xi)
         n = xi.shape[0]
-        xi = xi.reshape(1, n)  # I don't understand why xi is reshaped
         yd = 1
 
         """
@@ -262,48 +261,19 @@ class SmoothBSpline():
 
         [knots, coeffs] = self.fnint(xi, c, c.shape[0], 2)
         [knots, coeffs] = self.fnint(knots, coeffs, coeffs.shape[0], 3, values[0])
-        print 'knots', knots
-        print 'coeffs', coeffs
         self._knots = knots
         self._coeffs = coeffs
         self._k = 4
 
+        knotstar = self.aveknt(self._knots,self._k)
+        knotstar[0] = knots[0]
+        knotstar[-1] = knots[-1]
 
-        """ 
-        % At this point, SP differs from the answer by a polynomial of order M , and
-        % this polynomial is computable from its values   VALUES-FNVAL(SP,XI)
-        if m>1
-        """
+        pf = np.polyfit(xi - xi[0], values - self.eval(xi), 1)
+        vals = np.polyval(pf, knotstar-xi[0])
 
-        """
-        %(special treatment of endpoints to avoid singularity of collocation
-        % matrix due to noise in calculating knot averages)
-        
-        polyfit(x,y,n) finds the coefficients of a polynomial p(x) of degree n that fits the data, p(x(i)) to y(i),
-        in a least squares sense.
-        """
+        self._coeffs = self._coeffs+vals
 
-        a1 = xi - xi[0,0] # shift to zero
-        a2 = values - self.eval(xi)
-
-        knotstar = self.aveknt(self._knots,self._k) # @TODO
-        #knotstar[1 end] = knots[1 end]
-
-
-        # need it
-        # --->> fnval(sp, xi)
-
-        # a3 = knotstar-xi(1) # shift to zero
-
-        #vals = polyval(np.polyfit(a1,a2,1), a3)
-
-        """
-        % vals give the value at the Greville points of a straight line, and these
-        % we know therefore to be the B-coeffs of that straight line wrto knots.
-        sp = spmak(knots, coefs+vals); 
-
-        return 0
-        """
         return 0
 
     @classmethod
@@ -322,7 +292,7 @@ class SmoothBSpline():
         index =  np.flatnonzero(np.diff(t))
         needed = index[-1]+1 - n
         if (needed > 0):
-            t = np.hstack([t, np.tile(t[:,n+k-1], [1, needed])])
+            t = np.hstack([t, np.tile(t[n+k-1], needed)])
             a =np.hstack([a, np.zeros(1, needed)])
             n = n+needed
 
@@ -332,8 +302,8 @@ class SmoothBSpline():
             slice = np.hstack((val,np.zeros(needed), np.multiply(a,np.tile(np.divide(t[k:k+n]-t[:n],k), 1))))
             coeffs = np.cumsum(slice)
         else:
-            knots= np.hstack((t[0,:], t[0,n+k-1]))
-            coeffs =  np.cumsum(np.multiply(a, np.tile( np.divide(t[0,k:k+n] - t[0,:n], k), 1)))
+            knots= np.hstack((t, t[n+k-1]))
+            coeffs =  np.cumsum(np.multiply(a, np.tile( np.divide(t[k:k+n] - t[:n], k), 1)))
 
         return knots, coeffs
 
@@ -345,7 +315,7 @@ class SmoothBSpline():
         :return: array of function values for each x value
         """
         nx = 1 #everywhere because 1D array of x values is accepted
-        mx = x.shape[1]
+        mx = x.shape[0]
         lx = mx * nx;
         xs = x # reshape(x, 1, lx);
 
@@ -403,8 +373,8 @@ class SmoothBSpline():
 
         v = b[:,0]
         #Finally, zero out all values for points outside the basic interval:
-        v[x[0,:]<t[0]] = 0
-        v[x[0,:]>t[-1]] = 0
+        v[x<t[0]] = 0
+        v[x>t[-1]] = 0
         return v
 
 
@@ -446,5 +416,5 @@ class SmoothBSpline():
             c1 = np.reshape(c, [k-1, n+k+1])
             c2 = c1.sum(0)
             temp = np.divide(c2,k-1)
-            #tstar = temp(1 + [1:n]);
+            tstar = temp[1:n+1]
         return tstar
