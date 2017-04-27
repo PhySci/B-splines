@@ -5,6 +5,7 @@ F. Mushenok, https://github.com/PhySci
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from scipy import sparse
 from scipy.sparse import linalg
@@ -31,7 +32,7 @@ class SmoothBSpline():
     _k = 0 # order of spline
 
     @classmethod
-    def __init__(self, x, y, w, p):
+    def __init__(self, x=0, y=0, w=0, p=0):
         """
         Init object and calculate spline coefficients
         :param x: array of independent variable
@@ -206,8 +207,10 @@ class SmoothBSpline():
         [dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)] on diagonals (-1, 0, 1)
         """
 
-        A = sparse.spdiags(np.array([dxol[1:n-2]/6, 2*(dxol[1:n-2]+dxol[:n-3])/6, dxol[:n-3]/6]), np.array([-1, 0, 1]), n - m, n - m) #MATLAB TESTED
+        A = sparse.spdiags(np.array([dxol[1:n-2]/6, 2*(dxol[1:n-2]+dxol[:n-3])/6, dxol[:n-3]/6]), np.array([-1, 0, 1]), n - m, n - m)
 
+        #plt.plot(dx)
+        #plt.show()
         odx = np.divide(1, dx)
         """
         Ct  is the matrix whose j-th row contains the weights for for the `normalized'
@@ -418,3 +421,225 @@ class SmoothBSpline():
             temp = np.divide(c2,k-1)
             tstar = temp[1:n+1]
         return tstar
+
+    def checkData(self,x,y,w,p = 0.1):
+        """
+        Check and adjust input
+        :param x: 
+        :param y: 
+        :param nmin: 
+        :param w: 
+        :param p: 
+        :param adjtol: 
+        :return: 
+
+
+        """
+
+
+        # make sure X is real
+        #if ~all(isreal(x))
+        #    x = real(x);
+        #    warning(message('SPLINES:CHCKXYWP:Xnotreal'))
+        #end
+
+        # deal with NaN's and Inf's among the sites:
+        #    nanx = find(~isfinite(x));
+        #if ~isempty(nanx)
+        #    x(nanx) = [];
+        #    warning(message('SPLINES:CHCKXYWP:NaNs'))
+        #end
+
+        #n = length(x);
+
+        # re - sort, if needed, to ensure nondecreasing site sequence:
+        tosort = False;
+        if np.any(np.diff(x) < 0):
+            tosort = True
+            ind = np.argsort(x)
+            x = x[ind]
+            y = y[ind]
+            w = w[ind]
+
+        #nstart = n + length(nanx);
+
+
+        # make sure that sites, values and weights match in number:
+
+
+        if (x.shape!=y.shape):
+            raise ValueError("X don't match Y")
+
+        if (x.shape!=w.shape):
+            raise ValueError("W don't match Y")
+
+
+        #Remove values and error weights corresponding to nonfinite sites:
+        nanf = np.logical_or(np.logical_or(~np.isfinite(x),~np.isfinite(y)), ~np.isfinite(w))
+        if np.any(nanf):
+            x = x[~nanf]
+            y = y[~nanf]
+            w = w[~nanf]
+
+
+
+        """ 
+        if ~isempty(nanx), y(nanx,:) = []; if nonemptyw, w(nanx) = [];
+        end
+        if roughnessw % as a first approximation, simply ignore the
+        % specified weight
+        to the left of any ignored point.
+        p(max(nanx, 2)) = [];
+        end
+        end
+        if tosort, y = y(ind,:); if
+        nonemptyw, w = w(ind);
+        end, end
+
+        % deal
+        with nonfinites among the values:
+            nany = find(sum(~isfinite(y), 2));
+        if ~isempty(nany)
+            y(nany,:) = [];
+            x(nany) = [];
+            if nonemptyw, w(nany) =[]; end
+            warning(message('SPLINES:CHCKXYWP:NaNs'))
+            n = length(x);
+            if n < minn
+                error(message('SPLINES:CHCKXYWP:toofewX', sprintf('%g', minn))), end
+            if roughnessw % as a first approximation, simply ignore the
+            % specified
+            weight
+            to
+            the
+            left
+            of
+            any
+            ignored
+            point.
+        p(max(nany, 2)) = [];
+        end
+        end
+
+        if nargin == 3 & & nmin, return, end % for SPAPI, skip the averaging
+
+        if nargin > 3 & & isempty(w) % use the trapezoidal rule weights:
+            dx = diff(x);
+            if any(dx), w = ([dx;0]+[0;dx]).'/2;
+            else, w = ones(1, n);
+            end
+            nonemptyw = ~nonemptyw;
+        end
+
+        tolred = 0;
+        if ~all(diff(x)) % conflate repeat sites, averaging the corresponding values
+        % and summing
+        the
+        corresponding
+        weights
+        mults = knt2mlt(x);
+        for j=find(diff([mults;0]) < 0).'
+        if nonemptyw
+            temp = sum(w(j - mults(j):j));
+            if nargin > 5
+                tolred = tolred + w(j - mults(j):j)*sum(y(j - mults(j):j,:).^ 2, 2);
+                end
+                y(j - mults(j),:) = (w(j - mults(j):j)*y(j - mults(j):j,:)) / temp;
+                w(j - mults(j)) = temp;
+                if nargin > 5
+                    tolred = tolred - temp * sum(y(j - mults(j),:).^ 2);
+                    end
+                else
+                    y(j - mults(j),:) = mean(y(j - mults(j):j,:), 1);
+                    end
+                end
+
+                repeats = find(mults);
+                x(repeats) = [];
+                y(repeats,:) = [];
+                if nonemptyw, w(repeats) =[]; end
+                if roughnessw % as a first approximation, simply ignore the
+                % specified
+                weight
+                to
+                the
+                left
+                of
+                any
+                ignored
+                point.
+            p(max(repeats, 2)) = [];
+            end
+            n = length(x);
+            if n < minn, error(message('SPLINES:CHCKXYWP:toofewX', sprintf( '%g', minn ))), end
+        end
+
+        if nargin < 4, return, end
+
+        % remove
+        all
+        points
+        corresponding
+        to
+        relatively
+        small
+        weights(since
+        a
+        % (near -)
+        zero
+        weight in effect
+        asks
+        for the corresponding datum to be dis-
+        % regarded
+        while , at the same time, leading to bad condition and even
+        % division
+        by
+        zero).
+        origint = []; % this
+        will
+        be
+        set
+        to
+        x([1 end]).
+        ' in case the weight for an end
+        % data
+        point is near
+        zero, hence
+        the
+        approximation is computed
+                         % without
+        that
+        endpoint.
+        if nonemptyw
+        ignorep = find(w <= (1e-13) * max(abs(w)));
+        if ~isempty(ignorep)
+           if ignorep(1) == 1 | | ignorep(end) == n, origint = x([1 end]).
+        '; end
+        x(ignorep) = [];
+        y(ignorep,:) = [];
+        w(ignorep) = [];
+        if roughnessw
+           % as a
+        first
+        approximation, simply
+        ignore
+        the
+        % specified
+        weight
+        to
+        the
+        left
+        of
+        any
+        ignored
+        point. \
+            p(max(ignorep, 2)) = [];
+        end
+        n = length(x);
+        if n < minn
+        error(message('SPLINES:CHCKXYWP:toofewposW', sprintf('%g', minn)))
+        end
+        end
+        end
+"""
+        return x, y, w
