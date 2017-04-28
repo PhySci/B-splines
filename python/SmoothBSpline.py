@@ -33,66 +33,7 @@ class SmoothBSpline():
 
     @classmethod
     def __init__(self, x=0, y=0, w=0, p=0):
-        """
-        Init object and calculate spline coefficients
-        :param x: array of independent variable
-        :param y: array of dependent variable
-        :param w: array of weights 
-        :param p: smoothness of spline in range [0,1]
-        ""
-        x = np.array(x)
-        y = np.array(y)
-
-        if w is None:
-            # @TODO ugly piece
-            w = np.ones([x.shape[0], 1])
-
-        # @TODO check imput arrays here
-        # - size of x and y are equal
-        # - remove NaNs and Inf (simulteneously in x,y and w)
-        # x should be unique. If x is not unique, then process it (calculate mean x taking to account weigth arrays)
-        # - anything else?
-        # - p should be in [0,1]
-        # [xi,yi,sizeval,w,origint,tol,tolred] = chckxywp(x,y,max(2,m),w,tol,'adjtol');
-
-        # @TODO kostil'
-        if True:
-            self._x = x
-            self._y = y
-            self._w = w
-
-        h = np.diff(self._x)
-        n = h.shape[0]
-
-        # create D (weight matrix)
-        D = sparse.spdiags(self._w, 0, n+1, n+1)
-
-        # create Q matrix
-        ih = np.divide(1, h)
-        print 'ih'
-        print ih
-        Q = sparse.spdiags([ih[:-1], -ih[1:] - ih[:-1], ih[1:]], [-1, 0, 1], n+1, n-1)
-
-        # create  T matrix
-        T = sparse.spdiags([h[1:]/3.0, 2*(h[:-1]+h[1:])/3.0, h[1:]/3.0], [-1, 0, 1], n-1, n-1)
-
-        self._c = linalg.inv(Q.transpose() * D * D * Q + p*T) *p*Q.transpose() * self._y
-
-        self._a = self._y - D*D*Q*self._c/self._p
-
-        self._c = np.insert(self._c, 0, 0)
-        self._c = np.append(self._c,0)
-        self._d = (self._c[1:]-self._c[:-1])/(3*h)
-
-        self._b = (self._a[1:]-self._a[:-1])/h -self._c[:-1]*h -self._d*h**2
-
-        #print 'h=', h
-        print 'b=', self._b
-        print 'a=', self._a
-        print 'c=', self._c
-        print 'd=', self._d
-        """
-
+        pass
 
     @classmethod
     def calcCurve(self, xArr):
@@ -123,7 +64,6 @@ class SmoothBSpline():
 
         return yArr
 
-
     @classmethod
     def getCoeffs(self):
         """
@@ -132,9 +72,8 @@ class SmoothBSpline():
         """
         return [self._a, self._b, self._c, self._d]
 
-
     @classmethod
-    def bspl(self, x, y, w, p):
+    def bspl(self, x, y, w = None, p = 0.1):
         """
         Return smooth B spline
         :param x: array of independent variable
@@ -145,103 +84,29 @@ class SmoothBSpline():
         """
         m = 2
 
-        # matlab code
-        # order of curve (I suppose it means cubic)
-        # [sp,values,rho] = spaps1(x,y,tol,w,m);
-
-        # Convert to numpy array
-        #x = np.array(x)
-        #y = np.array(y)
-
         if w is None:
             # @TODO ugly piece
-            w = np.ones([x.shape[0], 1])
+            w = np.ones(x.shape[0])
 
-        # @TODO check imput arrays here
-        # - size of x and y are equal
-        # - remove NaNs and Inf (simulteneously in x,y and w)
-        # x should be unique. If x is not unique, then process it (calculate mean x taking to account weigth arrays)
-        # - anything else?
-        # - p should be in [0,1]
+        [x,y,w] = self.checkData(x,y,w)
 
-
-        #
-        # spaps1
-
-        # [xi,yi,sizeval,w,origint,tol,tolred] = chckxywp(x,y,max(2,m),w,tol,'adjtol');
 
         # @TODO kostil'
         #if True:
         xi = x
         yi = y
         sizeval = xi.shape[0]
-        tol = p # np.array([1])
-        tolread = 1
+        tol = p
 
         dx = np.diff(xi)
         n = xi.shape[0]
         yd = 1
 
-        """
-        Set up the linear system for solving for the B-spline coefficients of the m-th derivative of the smoothing spline
-        (as outlined in the note [C. de Boor, Calculation of the smoothing spline with weighted roughness measure]
-        obtainable as smooth.ps at ftp.cs.wisc.edu/Approx), making use of the sparsity of the system.
 
-
-        Deal with the possibility that a weighted roughness measure is to be used. This is quite easy since it amounts to
-        multiplying the integrand on the interval (x(i-1) .. x(i)) by 1/tol(i), i=2:n.
-        if length(tol)==1, dxol = dx;
-        else
-          lam = reshape(tol(2:end),n-1,1); tol = tol(1); dxol = dx./lam;
-        end
-        """
-        #if tol.shape[0] == 1:
         dxol = dx
-        #else: # I suppose that part of code will never work
-        #    lam = tol[2:].reshape(n - 1, 1)
-        #    tol = tol[0]
-        #    dxol = np.divide(dx, lam)
-
-        """"
-        A  is the Gramian of B_{j,x,m}, j=1,...,n-m,. It is an almost diagonal square matrix with (n-m) side and columns
-        [dxol(2:n - 1), 2 * (dxol(2:n - 1)+dxol(1:n - 2)), dxol(1:n - 2)] on diagonals (-1, 0, 1)
-        """
-
         A = sparse.spdiags(np.array([dxol[1:n-2]/6, 2*(dxol[1:n-2]+dxol[:n-3])/6, dxol[:n-3]/6]), np.array([-1, 0, 1]), n - m, n - m)
-
-        #plt.plot(dx)
-        #plt.show()
         odx = np.divide(1, dx)
-        """
-        Ct  is the matrix whose j-th row contains the weights for for the `normalized'
-        m-th divdif (m-1)! (x_{j+m}-x_j)[x_j,...,x_{j+m}]
-        
-        Ct = spdiags([odx(1:n-2), -(odx(2:n-1)+odx(1:n-2)), odx(2:n-1)], 0:m, n-m,n);
-        
-        """
-
-        # Ct matrix is wrong
         Ct = sparse.diags([odx[:n-2], -odx[:n-2]-odx[1:n-1], odx[1:n-1]], [0, 1, 2], shape = [n-2, n])
-
-        """
-        Now determine  f  as the smoothing spline, i.e., the minimizer of
-            rho*E(f) + F(D^m f)
-        with the smoothing parameter  RHO  chosen so that  E(f) <= TOL. Start with  RHO=0 , in which case  f  is polynomial
-        of order  M  that minimizes  E(f). If the resulting  E(f)  is too large, follow C. Reinsch and determine the proper
-        rho as the unique zero of the function
-            g(rho):= 1/sqrt(E(rho)) - 1/sqrt(TOL)
-        (since  g  is monotone increasing and is close to linear for larger RHO) using Newton's method  at  RHO = 0
-         but deviating from Reinsch's advice by using the Secant method after that. This requires
-            g'(rho) = -(1/2)E(rho)^{-3/2} DE(rho)
-         with  DE(rho) derived from the determining equations for  f . These are
-            Ct y = (Ct W^{-1} C + rho A) u,  u := c/rho
-         with  c  the B-coefficients of  D^m f , in terms of which
-             y - f = W^{-1} C u,  E(rho) =  (C u)' W^{-1} C u ,
-         hence DE(rho) =  2 (C u)' W^{-1} C Du, with  - A u = (Ct W^{-1} C + rho A) Du
-
-         In particular, DE(0) = -2 u' A u , with  u = (Ct W^{-1} C) \ (Ct y), hence  g'(0) = E(0)^{-3/2} u' A u.
-         """
-
         cty = Ct*yi
 
         wic = np.dot(sparse.diags(np.divide(1, w), 0, shape = [n, n]), Ct.transpose())
@@ -422,6 +287,7 @@ class SmoothBSpline():
             tstar = temp[1:n+1]
         return tstar
 
+    @classmethod
     def checkData(self,x,y,w,p = 0.1):
         """
         Check and adjust input
@@ -432,8 +298,6 @@ class SmoothBSpline():
         :param p: 
         :param adjtol: 
         :return: 
-
-
         """
 
 
@@ -441,31 +305,22 @@ class SmoothBSpline():
         #if ~all(isreal(x))
         #    x = real(x);
         #    warning(message('SPLINES:CHCKXYWP:Xnotreal'))
-        #end
+
 
         # deal with NaN's and Inf's among the sites:
         #    nanx = find(~isfinite(x));
         #if ~isempty(nanx)
         #    x(nanx) = [];
         #    warning(message('SPLINES:CHCKXYWP:NaNs'))
-        #end
 
-        #n = length(x);
 
-        # re - sort, if needed, to ensure nondecreasing site sequence:
-        tosort = False;
+        # re-sort, if needed, to ensure nondecreasing site sequence:
         if np.any(np.diff(x) < 0):
             tosort = True
             ind = np.argsort(x)
             x = x[ind]
             y = y[ind]
             w = w[ind]
-
-        #nstart = n + length(nanx);
-
-
-        # make sure that sites, values and weights match in number:
-
 
         if (x.shape!=y.shape):
             raise ValueError("X don't match Y")
@@ -481,165 +336,24 @@ class SmoothBSpline():
             y = y[~nanf]
             w = w[~nanf]
 
+        z = np.diff(x)
+        z[z != 0] = 1
+        z = np.cumsum(np.hstack([0, z]))
 
+        maxInd = int(z[-1]) + 1
+        xNew = np.zeros(maxInd)
+        yNew = np.zeros(maxInd)
+        wNew = np.zeros(maxInd)
 
-        """ 
-        if ~isempty(nanx), y(nanx,:) = []; if nonemptyw, w(nanx) = [];
-        end
-        if roughnessw % as a first approximation, simply ignore the
-        % specified weight
-        to the left of any ignored point.
-        p(max(nanx, 2)) = [];
-        end
-        end
-        if tosort, y = y(ind,:); if
-        nonemptyw, w = w(ind);
-        end, end
+        for ind in range(maxInd):
+            degInd = np.argwhere(z == ind)
+            if (degInd.shape[0] == 1):
+                xNew[ind] = x[degInd]
+                wNew[ind] = w[degInd]
+                yNew[ind] = y[degInd]
+            else:
+                xNew[ind] = x[degInd[0]]
+                wNew[ind] = np.sum(w[degInd])
+                yNew[ind] = np.sum(y[degInd] * w[degInd]) / np.sum(w[degInd])
 
-        % deal
-        with nonfinites among the values:
-            nany = find(sum(~isfinite(y), 2));
-        if ~isempty(nany)
-            y(nany,:) = [];
-            x(nany) = [];
-            if nonemptyw, w(nany) =[]; end
-            warning(message('SPLINES:CHCKXYWP:NaNs'))
-            n = length(x);
-            if n < minn
-                error(message('SPLINES:CHCKXYWP:toofewX', sprintf('%g', minn))), end
-            if roughnessw % as a first approximation, simply ignore the
-            % specified
-            weight
-            to
-            the
-            left
-            of
-            any
-            ignored
-            point.
-        p(max(nany, 2)) = [];
-        end
-        end
-
-        if nargin == 3 & & nmin, return, end % for SPAPI, skip the averaging
-
-        if nargin > 3 & & isempty(w) % use the trapezoidal rule weights:
-            dx = diff(x);
-            if any(dx), w = ([dx;0]+[0;dx]).'/2;
-            else, w = ones(1, n);
-            end
-            nonemptyw = ~nonemptyw;
-        end
-
-        tolred = 0;
-        if ~all(diff(x)) % conflate repeat sites, averaging the corresponding values
-        % and summing
-        the
-        corresponding
-        weights
-        mults = knt2mlt(x);
-        for j=find(diff([mults;0]) < 0).'
-        if nonemptyw
-            temp = sum(w(j - mults(j):j));
-            if nargin > 5
-                tolred = tolred + w(j - mults(j):j)*sum(y(j - mults(j):j,:).^ 2, 2);
-                end
-                y(j - mults(j),:) = (w(j - mults(j):j)*y(j - mults(j):j,:)) / temp;
-                w(j - mults(j)) = temp;
-                if nargin > 5
-                    tolred = tolred - temp * sum(y(j - mults(j),:).^ 2);
-                    end
-                else
-                    y(j - mults(j),:) = mean(y(j - mults(j):j,:), 1);
-                    end
-                end
-
-                repeats = find(mults);
-                x(repeats) = [];
-                y(repeats,:) = [];
-                if nonemptyw, w(repeats) =[]; end
-                if roughnessw % as a first approximation, simply ignore the
-                % specified
-                weight
-                to
-                the
-                left
-                of
-                any
-                ignored
-                point.
-            p(max(repeats, 2)) = [];
-            end
-            n = length(x);
-            if n < minn, error(message('SPLINES:CHCKXYWP:toofewX', sprintf( '%g', minn ))), end
-        end
-
-        if nargin < 4, return, end
-
-        % remove
-        all
-        points
-        corresponding
-        to
-        relatively
-        small
-        weights(since
-        a
-        % (near -)
-        zero
-        weight in effect
-        asks
-        for the corresponding datum to be dis-
-        % regarded
-        while , at the same time, leading to bad condition and even
-        % division
-        by
-        zero).
-        origint = []; % this
-        will
-        be
-        set
-        to
-        x([1 end]).
-        ' in case the weight for an end
-        % data
-        point is near
-        zero, hence
-        the
-        approximation is computed
-                         % without
-        that
-        endpoint.
-        if nonemptyw
-        ignorep = find(w <= (1e-13) * max(abs(w)));
-        if ~isempty(ignorep)
-           if ignorep(1) == 1 | | ignorep(end) == n, origint = x([1 end]).
-        '; end
-        x(ignorep) = [];
-        y(ignorep,:) = [];
-        w(ignorep) = [];
-        if roughnessw
-           % as a
-        first
-        approximation, simply
-        ignore
-        the
-        % specified
-        weight
-        to
-        the
-        left
-        of
-        any
-        ignored
-        point. \
-            p(max(ignorep, 2)) = [];
-        end
-        n = length(x);
-        if n < minn
-        error(message('SPLINES:CHCKXYWP:toofewposW', sprintf('%g', minn)))
-        end
-        end
-        end
-"""
-        return x, y, w
+        return xNew, yNew, wNew

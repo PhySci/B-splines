@@ -1,9 +1,10 @@
 n = 100;
 x = linspace(0,10,n);
+x(6) = x(7)
 y = cos(x) %x.^3+1;
 w = ones(n,1);
 
-sp1 = spaps1(x,y,-1,w,2)
+sp1 = spaps1(x,y,-1,[],2)
 sp2 = spaps1(x,y,-0.5,w,2)
 sp3 = spaps1(x,y,-0.1,w,2)
 

@@ -9,7 +9,7 @@ if __name__ == '__main__':
     y = np.cos(x)
     w = np.ones(nPoints)
 
-    sp1 = SmoothBSpline(x, y, w, 0)
+    sp1 = SmoothBSpline(x, y, w, 0.1)
     [x,y,w] = sp1.checkData(x,y,w)
 
     sp1.bspl(x,y,w,0.1)
