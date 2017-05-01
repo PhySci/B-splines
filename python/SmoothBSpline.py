@@ -353,7 +353,7 @@ class SmoothBSpline():
                 yNew[ind] = y[degInd]
             else:
                 xNew[ind] = x[degInd[0]]
-                wNew[ind] = np.sum(w[degInd])
+                wNew[ind] = np.mean(w[degInd])
                 yNew[ind] = np.sum(y[degInd] * w[degInd]) / np.sum(w[degInd])
 
         return xNew, yNew, wNew

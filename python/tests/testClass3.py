@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from SmoothBSpline import SmoothBSpline
+from python.SmoothBSpline import SmoothBSpline
 import numpy as np
 
 if __name__ == '__main__':
@@ -9,7 +9,7 @@ if __name__ == '__main__':
     y = np.cos(x)
     w = np.ones(nPoints)
 
-    sp1 = SmoothBSpline(x, y, w, 0.1)
+    sp1 = SmoothBSpline(x, y, w, 0.5)
     [x,y,w] = sp1.checkData(x,y,w)
 
     sp1.bspl(x,y,w,0.1)

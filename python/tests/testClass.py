@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from SmoothBSpline import SmoothBSpline
+from python.SmoothBSpline import SmoothBSpline
 import numpy as np
 
 if __name__ == '__main__':

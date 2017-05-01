@@ -1,5 +1,5 @@
 import unittest
-from SmoothBSpline import SmoothBSpline
+from python.SmoothBSpline import SmoothBSpline
 import numpy as np
 import numpy.testing as npt
 
