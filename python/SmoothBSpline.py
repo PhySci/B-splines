@@ -323,10 +323,10 @@ class SmoothBSpline():
             w = w[ind]
 
         if (x.shape!=y.shape):
-            raise ValueError("X don't match Y")
+            raise ValueError("Y don't match X")
 
         if (x.shape!=w.shape):
-            raise ValueError("W don't match Y")
+            raise ValueError("W don't match X")
 
 
         #Remove values and error weights corresponding to nonfinite sites:
