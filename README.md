@@ -18,5 +18,6 @@ y1 = sp1.eval(x)
 ![alt tag](index.png)
 
 ### Testing on real data
+Some experimental data, MatLab and Python splines are shown on the top panel. The difference between MatLab and Python splines is shown on the bottom panel.
 ![alt tag](index2.png)
 
