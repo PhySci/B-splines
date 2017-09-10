@@ -28,8 +28,9 @@ class TestSmoothBSpline(unittest.TestCase):
     def test_simpleSet(self):
         x = np.linspace(0, 5, 10)
         y = x ** 3
+        w = np.ones(10)
         sp1 = SmoothBSpline()
-        sp1.bspl(x, y, None, 1)
+        sp1.bspl(x, y, w, 1)
         y1 = sp1.eval(x)
         npt.assert_almost_equal(y1, y, -2)
 
